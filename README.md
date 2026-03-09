@@ -122,7 +122,3 @@ Windows:
 - `shiftgen/excel.py`
 - `shiftgen/io.py`
 - `shiftgen/cli.py`
-
-## 参考
-
-- 旧プロジェクト由来のWindows配布手順: `BUILD_WINDOWS_EXE.md`
