@@ -1,0 +1,27 @@
+{
+  "month": "2026-04",
+  "holidays": [
+    "2026-04-29"
+  ],
+  "staff": [
+    {"id": "S1", "name": "技師長", "role": "chief", "employment_type": "full_time", "has_other_skill": false},
+    {"id": "S2", "name": "一般A", "role": "normal", "employment_type": "full_time", "has_other_skill": true},
+    {"id": "S3", "name": "一般B", "role": "normal", "employment_type": "full_time", "has_other_skill": true},
+    {"id": "S4", "name": "一般C", "role": "normal", "employment_type": "full_time", "has_other_skill": false},
+    {"id": "S5", "name": "一般D", "role": "normal", "employment_type": "full_time", "has_other_skill": false},
+    {"id": "S6", "name": "一般E", "role": "normal", "employment_type": "full_time", "has_other_skill": false},
+    {"id": "S7", "name": "時短", "role": "normal", "employment_type": "short_time", "has_other_skill": false},
+    {"id": "S8", "name": "パート", "role": "normal", "employment_type": "part_time", "has_other_skill": false},
+    {"id": "S9", "name": "一般F", "role": "normal", "employment_type": "full_time", "has_other_skill": true}
+  ],
+  "requests_off": {
+    "S2": ["2026-04-06", "2026-04-20"],
+    "S7": ["2026-04-15"],
+    "S8": ["2026-04-09"]
+  },
+  "settings": {
+    "max_time_in_seconds": 15,
+    "num_search_workers": 8,
+    "allow_partial": true
+  }
+}

@@ -1,137 +1,128 @@
 from __future__ import annotations
 
-from .calendar_utils import is_saturday
-from .domain import Assignment, MonthInput, SLOT_LABEL_JA, SLOT_ORDER
+from datetime import date
 
-HOURS_WEEKDAY = 8.5
-HOURS_SATURDAY = 4.5
+from .calendar_utils import month_range
+from .domain import AlertItem, Assignment, MonthInput, SHIFT_HOURS
 
 
-def compute_hours(
-    mi: MonthInput, assignments: tuple[Assignment, ...]
-) -> list[tuple[str, str, bool, int, int, float]]:
-    """スタッフごとの勤務回数・合計時間を返す。
+def _slot_key_to_code(slot_key: str) -> str:
+    return slot_key.split("#", 1)[0]
 
-    Returns:
-        list of (staff_id, name, is_manager, wd_count, sat_count, total_hours)
-        スタッフ登録順に並ぶ。
-    """
-    wd_count: dict[str, int] = {s.id: 0 for s in mi.staff}
-    sat_count: dict[str, int] = {s.id: 0 for s in mi.staff}
 
+def build_staff_day_codes(mi: MonthInput, assignments: tuple[Assignment, ...]) -> dict[tuple[str, date], str]:
+    out: dict[tuple[str, date], str] = {}
     for a in assignments:
-        sat = is_saturday(a.day)
-        for sid in a.slots.values():
-            if sat:
-                sat_count[sid] += 1
-            else:
-                wd_count[sid] += 1
+        for slot_key, sid in a.slots.items():
+            out[(sid, a.day)] = _slot_key_to_code(slot_key)
+    return out
 
-    result = []
+
+def compute_summary(
+    mi: MonthInput, assignments: tuple[Assignment, ...]
+) -> list[tuple[str, str, int, float, int]]:
+    start, end = month_range(mi.month)
+    total_days = end.day
+    by_day = build_staff_day_codes(mi, assignments)
+
+    rows: list[tuple[str, str, int, float, int]] = []
     for s in mi.staff:
-        wd = wd_count[s.id]
-        sat = sat_count[s.id]
-        total = wd * HOURS_WEEKDAY + sat * HOURS_SATURDAY
-        result.append((s.id, s.name, s.is_manager, wd, sat, total))
-    return result
+        work_days = 0
+        work_hours = 0.0
+        for d in range(1, total_days + 1):
+            cur = date(start.year, start.month, d)
+            code = by_day.get((s.id, cur))
+            if not code:
+                continue
+            work_days += 1
+            work_hours += SHIFT_HOURS.get(code, 0.0)
+        rest_days = total_days - work_days
+        rows.append((s.id, s.name, work_days, work_hours, rest_days))
+    return rows
 
 
-def export_xlsx(mi: MonthInput, assignments: tuple[Assignment, ...], out_path: str) -> None:
+def export_xlsx(
+    mi: MonthInput,
+    assignments: tuple[Assignment, ...],
+    out_path: str,
+    alerts: tuple[AlertItem, ...] = (),
+    request_violations: tuple[tuple[date, str], ...] = (),
+) -> None:
     try:
         from openpyxl import Workbook
         from openpyxl.styles import Alignment, Font, PatternFill
+        from openpyxl.utils import get_column_letter
     except ModuleNotFoundError as e:
         raise RuntimeError(
             "openpyxl が見つかりません。`pip install -r requirements.txt` を実行してください。"
         ) from e
 
-    staff_by_id = mi.staff_by_id()
     wb = Workbook()
     ws = wb.active
     ws.title = mi.month
 
-    header = ["日付", "曜日", "種別"] + [SLOT_LABEL_JA[s] for s in SLOT_ORDER] + ["マネージャー有"]
-    ws.append(header)
-
     fill_header = PatternFill("solid", fgColor="1F2937")
     font_header = Font(color="FFFFFF", bold=True)
+
+    start, end = month_range(mi.month)
+    total_days = end.day
+    weekdays = "月火水木金土日"
+
+    header = ["名前"] + [f"{d}({weekdays[date(start.year, start.month, d).weekday()]})" for d in range(1, total_days + 1)] + [
+        "勤務日数",
+        "勤務時間",
+        "休日数",
+    ]
+    ws.append(header)
+
     for col in range(1, len(header) + 1):
         cell = ws.cell(row=1, column=col)
         cell.fill = fill_header
         cell.font = font_header
         cell.alignment = Alignment(horizontal="center", vertical="center")
 
-    weekdays = "月火水木金土日"
-    for a in assignments:
-        d = a.day
-        has_mgr = any(staff_by_id[sid].is_manager for sid in a.slots.values())
-        kind = "土曜" if d.weekday() == 5 else "平日"
+    by_day = build_staff_day_codes(mi, assignments)
+    summaries = compute_summary(mi, assignments)
 
-        row = [d.isoformat(), weekdays[d.weekday()], kind]
-        for slot_name in SLOT_ORDER:
-            sid = a.slots.get(slot_name)
-            row.append(staff_by_id[sid].name if sid else "")
-        row.append("OK" if has_mgr else "NG")
+    for sid, name, work_days, work_hours, rest_days in summaries:
+        row = [name]
+        for d in range(1, total_days + 1):
+            cur = date(start.year, start.month, d)
+            row.append(by_day.get((sid, cur), ""))
+        row.extend([work_days, work_hours, rest_days])
         ws.append(row)
 
-    ws.freeze_panes = "A2"
-    widths = [12, 6, 8] + [12] * len(SLOT_ORDER) + [16]
-    from openpyxl.utils import get_column_letter
+    ws.freeze_panes = "B2"
+    ws.column_dimensions["A"].width = 16
+    for col in range(2, 2 + total_days):
+        ws.column_dimensions[get_column_letter(col)].width = 8
+    ws.column_dimensions[get_column_letter(2 + total_days)].width = 10
+    ws.column_dimensions[get_column_letter(3 + total_days)].width = 10
+    ws.column_dimensions[get_column_letter(4 + total_days)].width = 10
 
-    for i, w in enumerate(widths, start=1):
-        ws.column_dimensions[get_column_letter(i)].width = w
-
-    for r in range(2, len(assignments) + 2):
+    for r in range(2, 2 + len(summaries)):
         for c in range(1, len(header) + 1):
-            ws.cell(row=r, column=c).alignment = Alignment(
-                horizontal="center", vertical="center", wrap_text=True
-            )
+            ws.cell(row=r, column=c).alignment = Alignment(horizontal="center", vertical="center")
 
-    # --- 2枚目: 勤務時間集計シート ---
-    ws2 = wb.create_sheet(title="勤務時間集計")
-    summary_header = ["名前", "マネージャー", "平日勤務回数", f"平日時間(×{HOURS_WEEKDAY}h)", "土曜勤務回数", f"土曜時間(×{HOURS_SATURDAY}h)", "合計時間(h)"]
-    ws2.append(summary_header)
-    for col in range(1, len(summary_header) + 1):
+    ws2 = wb.create_sheet("不足アラート")
+    ws2_header = ["日付", "不足シフト", "不足人数"]
+    ws2.append(ws2_header)
+    for col in range(1, len(ws2_header) + 1):
         cell = ws2.cell(row=1, column=col)
         cell.fill = fill_header
         cell.font = font_header
         cell.alignment = Alignment(horizontal="center", vertical="center")
 
-    hours_data = compute_hours(mi, assignments)
-    for _sid, name, is_mgr, wd, sat, total in hours_data:
-        ws2.append([
-            name,
-            "○" if is_mgr else "",
-            wd,
-            wd * HOURS_WEEKDAY,
-            sat,
-            sat * HOURS_SATURDAY,
-            total,
-        ])
+    for a in alerts:
+        ws2.append([a.date.isoformat(), a.shift_code, a.missing_count])
+    for d, sid in request_violations:
+        ws2.append([d.isoformat(), f"希望休違反({sid})", 1])
 
-    # 合計行
-    n = len(hours_data)
-    if n > 0:
-        ws2.append([
-            "合計",
-            "",
-            sum(r[3] for r in hours_data),
-            sum(r[3] * HOURS_WEEKDAY for r in hours_data),
-            sum(r[4] for r in hours_data),
-            sum(r[4] * HOURS_SATURDAY for r in hours_data),
-            sum(r[5] for r in hours_data),
-        ])
-        total_row = n + 2
-        font_total = Font(bold=True)
-        for col in range(1, len(summary_header) + 1):
-            ws2.cell(row=total_row, column=col).font = font_total
-
-    summary_widths = [14, 14, 14, 20, 14, 20, 14]
-    for i, w in enumerate(summary_widths, start=1):
-        ws2.column_dimensions[get_column_letter(i)].width = w
-    for r in range(2, len(hours_data) + 3):
-        for c in range(1, len(summary_header) + 1):
+    ws2.column_dimensions["A"].width = 14
+    ws2.column_dimensions["B"].width = 14
+    ws2.column_dimensions["C"].width = 10
+    for r in range(2, 2 + len(alerts) + len(request_violations)):
+        for c in range(1, 4):
             ws2.cell(row=r, column=c).alignment = Alignment(horizontal="center", vertical="center")
 
     wb.save(out_path)
-

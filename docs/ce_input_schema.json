@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.local/schemas/ce_input_schema.json",
+  "title": "CE Shift Input Schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "month",
+    "staff",
+    "requests_off"
+  ],
+  "properties": {
+    "month": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$"
+    },
+    "holidays": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-[0-3][0-9]$"
+      },
+      "uniqueItems": true,
+      "default": []
+    },
+    "staff": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "role",
+          "employment_type",
+          "has_other_skill"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "role": {
+            "type": "string",
+            "enum": ["chief", "normal"]
+          },
+          "employment_type": {
+            "type": "string",
+            "enum": ["full_time", "part_time", "short_time"]
+          },
+          "has_other_skill": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "requests_off": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-[0-3][0-9]$"
+        },
+        "uniqueItems": true,
+        "default": []
+      }
+    },
+    "settings": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "max_time_in_seconds": {
+          "type": "number",
+          "minimum": 1,
+          "default": 10
+        },
+        "num_search_workers": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 8
+        },
+        "allow_partial": {
+          "type": "boolean",
+          "default": true
+        }
+      }
+    }
+  }
+}

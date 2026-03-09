@@ -1,6 +1,7 @@
 __all__ = [
     "app_paths",
     "calendar_utils",
+    "ce_gui",
     "cli",
     "domain",
     "excel",
@@ -10,4 +11,3 @@ __all__ = [
     "solver",
     "template_excel",
 ]
-
