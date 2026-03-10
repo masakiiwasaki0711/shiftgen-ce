@@ -3,6 +3,8 @@ from __future__ import annotations
 import calendar
 from datetime import date, timedelta
 
+import jpholiday
+
 
 def month_range(month: str) -> tuple[date, date]:
     y, m = month.split("-")
@@ -26,3 +28,7 @@ def is_sunday(d: date) -> bool:
 def is_saturday(d: date) -> bool:
     return d.weekday() == 5
 
+
+def month_holidays_jp(month: str) -> set[date]:
+    start, end = month_range(month)
+    return {d for d in iter_dates(start, end) if jpholiday.is_holiday(d)}

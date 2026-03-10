@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from datetime import date
 from tkinter import filedialog, messagebox, ttk
 
-from .calendar_utils import month_range
+from .calendar_utils import month_holidays_jp, month_range
 from .domain import EMP_FULL_TIME, EMP_PART_TIME, EMP_SHORT_TIME, ROLE_CHIEF, ROLE_NORMAL, MonthInput, Staff
 from .excel import compute_summary, export_xlsx
 from .solver import SolveError, solve
@@ -86,6 +86,7 @@ class App(tk.Tk):
         self._staff_display_to_id: dict[str, str] = {}
         self._staff_id_to_display: dict[str, str] = {}
         self._build_ui()
+        self._apply_default_holidays(self.state.month)
 
     def _build_ui(self) -> None:
         top = ttk.Frame(self)
@@ -93,7 +94,10 @@ class App(tk.Tk):
 
         ttk.Label(top, text="対象月 (YYYY-MM)").pack(side="left")
         self.month_var = tk.StringVar(value=self.state.month)
-        ttk.Entry(top, textvariable=self.month_var, width=10).pack(side="left", padx=6)
+        self.month_entry = ttk.Entry(top, textvariable=self.month_var, width=10)
+        self.month_entry.pack(side="left", padx=6)
+        self.month_entry.bind("<Return>", lambda _e: self._refresh_calendar())
+        self.month_entry.bind("<FocusOut>", lambda _e: self._refresh_calendar())
         ttk.Button(top, text="カレンダー更新", command=self._refresh_calendar).pack(side="left", padx=6)
 
         ttk.Button(top, text="JSON読込", command=self._load_json).pack(side="left", padx=6)
@@ -339,8 +343,19 @@ class App(tk.Tk):
         if len(month) != 7 or month[4] != "-":
             messagebox.showerror("入力エラー", "対象月は YYYY-MM 形式で入力してください。")
             return
+        month_changed = month != self.state.month
         self.state.month = month
+        if month_changed:
+            self._apply_default_holidays(month)
         self._rebuild_calendar()
+
+    def _apply_default_holidays(self, month: str) -> None:
+        holidays = month_holidays_jp(month)
+        self.state.holidays = holidays
+        if hasattr(self, "holidays_var"):
+            self.holidays_var.set(_date_list_str(holidays))
+        if hasattr(self, "calendar_frame"):
+            self._rebuild_calendar()
 
     def _selected_calendar_staff_id(self) -> str | None:
         display = self.calendar_staff_var.get().strip()
@@ -495,9 +510,8 @@ class App(tk.Tk):
         ]
         self._refresh_staff_tree()
 
-        holidays = set()
-        for d in raw.get("holidays", []):
-            holidays.add(_parse_date(str(d)))
+        raw_holidays = raw.get("holidays", [])
+        holidays = {_parse_date(str(d)) for d in raw_holidays} if raw_holidays else month_holidays_jp(self.state.month)
         self.state.holidays = holidays
         self.holidays_var.set(_date_list_str(holidays))
 

@@ -65,8 +65,13 @@ Each staff has the following fields:
 2. Requests off are absolute: staff cannot be assigned on those dates.
 3. Role and employment constraints:
 - Chief (`role=chief`): only `Gフ` or `G他`; cannot work Tuesday.
-- Part-time (`employment_type=part_time`): exactly 2 assignments per week; only `Gフ`; cannot work Tuesday.
+  Exception: on Mon/Wed/Fri holidays only, may also take `Aフ` when needed to avoid missing required slots.
+- Part-time (`employment_type=part_time`): normally 2 assignments per week; only `Gフ`; cannot work Tuesday.
+  Exceptions:
+  - on Mon/Wed/Fri holidays only, may also take `Aフ` when needed to avoid missing required slots.
+  - may work 3 assignments in a week only when needed to avoid missing required slots; otherwise 2 is preferred.
 - Short-time (`employment_type=short_time`): only `Gフ`.
+  Exception: on Mon/Wed/Fri holidays only, may also take `Aフ` when needed to avoid missing required slots.
 4. Weekly max 40 hours for non-part-time staff.
 5. Monthly max hours `5.7 * days_in_month` for non-part-time staff.
 

@@ -73,14 +73,25 @@ def _is_preferred_overflow_day(day: date, holidays: set[date]) -> bool:
     return day.weekday() in (0, 2, 3, 5) and day not in holidays
 
 
-def _shift_allowed(staff: Staff, shift_code: str, day: date) -> bool:
+def _is_mwf_holiday(day: date, holidays: set[date]) -> bool:
+    return day.weekday() in (0, 2, 4) and day in holidays
+
+
+def _shift_allowed(staff: Staff, shift_code: str, day: date, holidays: set[date]) -> bool:
+    is_holiday_a_exception = _is_mwf_holiday(day, holidays) and shift_code == SHIFT_A_MAIN
     if staff.role == ROLE_CHIEF:
+        if is_holiday_a_exception:
+            return day.weekday() != 1
         return day.weekday() != 1 and shift_code in (SHIFT_G_MAIN, SHIFT_G_OTHER)
 
     if staff.employment_type == EMP_PART_TIME:
+        if is_holiday_a_exception:
+            return day.weekday() != 1
         return day.weekday() != 1 and shift_code == SHIFT_G_MAIN
 
     if staff.employment_type == EMP_SHORT_TIME:
+        if is_holiday_a_exception:
+            return True
         return shift_code == SHIFT_G_MAIN
 
     return True
@@ -179,7 +190,7 @@ def _solve_once(mi: MonthInput, allow_partial: bool) -> SolveResult | None:
 
     for p, s in enumerate(staff):
         for di, key, code, _is_req, _is_over, _is_pref in slot_meta:
-            if not _shift_allowed(s, code, days[di]):
+            if not _shift_allowed(s, code, days[di], holidays):
                 model.Add(x[(p, di, key)] == 0)
 
     week_to_indices: dict[tuple[int, int], list[int]] = {}
@@ -191,12 +202,17 @@ def _solve_once(mi: MonthInput, allow_partial: bool) -> SolveResult | None:
     hours_scale = 20
     shift_hour_units = {code: int(round(hours * hours_scale)) for code, hours in SHIFT_HOURS.items()}
 
+    extra_part_time_week_vars: list[cp_model.IntVar] = []
     for p, s in enumerate(staff):
         if s.employment_type == EMP_PART_TIME:
             for widx in week_to_indices.values():
-                model.Add(
-                    sum(x[(p, di, key)] for di in widx for key in day_to_slot_keys[di]) == 2
-                )
+                weekly_assignments = sum(x[(p, di, key)] for di in widx for key in day_to_slot_keys[di])
+                model.Add(weekly_assignments >= 2)
+                model.Add(weekly_assignments <= 3)
+                extra = model.NewBoolVar(f"part_time_extra_week_p{p}_{widx[0]}_{widx[1]}")
+                model.Add(weekly_assignments == 3).OnlyEnforceIf(extra)
+                model.Add(weekly_assignments != 3).OnlyEnforceIf(extra.Not())
+                extra_part_time_week_vars.append(extra)
 
     weekly_cap_units = int(40 * hours_scale)
     for p, s in enumerate(staff):
@@ -276,6 +292,7 @@ def _solve_once(mi: MonthInput, allow_partial: bool) -> SolveResult | None:
     objective = (
         sum(missing_required_vars) * 10_000_000
         + sum(emergency_vars) * 1_000_000
+        + sum(extra_part_time_week_vars) * 2_000_000
         + sum(v for v, _p, _di in request_violation_vars) * 10_000
         + imbalance * 10
         - total_hours_all * 1_000
