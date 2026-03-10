@@ -1,4 +1,4 @@
-# ce-shift — Claude Code 向けプロジェクトガイド
+# shiftgen-ce — Claude Code 向けプロジェクトガイド
 
 ## プロジェクト概要
 
@@ -25,7 +25,7 @@ python -m shiftgen.cli --in sample_config_ce.json --out output.xlsx
 ## ディレクトリ構成
 
 ```
-ce-shift/
+shiftgen-ce/
 ├── app.py                  # GUI エントリポイント（CE GUI を起動）
 ├── cli.py                  # CLI エントリポイント（shiftgen.cli へ委譲）
 ├── sample_config_ce.json   # CE入力 JSON サンプル

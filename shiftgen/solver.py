@@ -93,7 +93,7 @@ def _solve_once(mi: MonthInput, allow_partial: bool) -> SolveResult | None:
         msg = str(e)
         if "numpy.core.multiarray failed to import" in msg or "compiled using NumPy 1.x" in msg:
             raise SolveError(
-                "NumPy 依存エラーです。Anaconda ではなく ce-shift/.venv の Python で起動してください。"
+                "NumPy 依存エラーです。Anaconda ではなくこのプロジェクトの .venv の Python で起動してください。"
             ) from e
         raise SolveError("ortools の読み込みに失敗しました。`.venv` で起動しているか確認してください。") from e
 

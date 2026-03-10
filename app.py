@@ -47,7 +47,7 @@ def main() -> int:
         return 0
     except Exception:
         tb = traceback.format_exc()
-        _show_fatal_error("ce-shift error", tb)
+        _show_fatal_error("shiftgen-ce error", tb)
         return 1
 
 

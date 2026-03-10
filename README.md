@@ -1,4 +1,4 @@
-# ce-shift (CE部署向けシフト生成)
+# shiftgen-ce (CE部署向けシフト生成)
 
 CE部署向けの月次シフトを自動生成し、Excel (`.xlsx`) に出力するプロジェクトです。
 現在は **CE仕様のGUI + CLI** が利用できます。
@@ -40,7 +40,7 @@ pip install -r requirements.txt
 推奨:
 
 ```bash
-cd /Users/iwasakimasaki/ce-shift
+cd /path/to/shiftgen-ce
 ./run.command
 ```
 
